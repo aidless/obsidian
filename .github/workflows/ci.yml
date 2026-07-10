@@ -1,11 +1,14 @@
 name: CI
 
-# 触发条件: PR + push main + 手动
+# 触发条件: PR + 所有 branch push + 手动
+# 注意: push 所有 branch 触发 CI (开发友好)
+# 也可以改回 push.branches: [main] 只在 main 跑
 on:
   pull_request:
     branches: [main, master]
   push:
-    branches: [main, master]
+    branches:
+      - '**'
   workflow_dispatch:
 
 # 取消正在运行的旧 CI (节省资源)
