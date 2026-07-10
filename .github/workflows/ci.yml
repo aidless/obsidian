@@ -50,12 +50,8 @@ jobs:
         timeout-minutes: 5
         run: |
           python -m pip install --upgrade pip
-          # --quiet: 减少输出
-          # 不指定版本: 拉最新稳定版, 避免版本兼容问题
-          pip install --quiet --disable-pip-version-check \
-            numpy \
-            faiss-cpu \
-            sentence-transformers
+          # 从 requirements.txt 安装, 同时触发 pip cache
+          pip install --quiet --disable-pip-version-check -r requirements.txt
           echo "::notice::Dependencies installed"
 
       # ─────────────────────────────────────────────────────────
