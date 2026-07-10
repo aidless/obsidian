@@ -1,0 +1,134 @@
+name: CI
+
+# 触发条件: PR + push main + 手动
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# 取消正在运行的旧 CI (节省资源)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit Tests (mock KB)
+    runs-on: ubuntu-latest
+    # Job 整体超时: 包含 4 step timeout + buffer
+    # 4 步骤最坏情况: 1 + 5 + 2 + 1 + 1 = 10 min, 加 50% buffer = 15 min
+    timeout-minutes: 15
+
+    # fail-fast: 任何 step 失败立即停止后续 step
+    # 注意: GitHub Actions 默认就是 fail-fast (无需显式设)
+    steps:
+      # ─────────────────────────────────────────────────────────
+      # Step 1: 拉代码 (官方 action, 几乎不会卡, 但还是加保护)
+      # ─────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      # ─────────────────────────────────────────────────────────
+      # Step 2: Python 环境
+      # ─────────────────────────────────────────────────────────
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+        timeout-minutes: 2
+
+      # ─────────────────────────────────────────────────────────
+      # Step 3: 安装依赖 (最容易卡死的 step)
+      # 风险: faiss-cpu 偶尔需要本地编译, sentence-transformers 嵌套依赖多
+      # timeout 5min: 正常 wheel 安装 1-2min, 超过说明在编译或拉包卡死
+      # ─────────────────────────────────────────────────────────
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: |
+          python -m pip install --upgrade pip
+          # --quiet: 减少输出
+          # 不指定版本: 拉最新稳定版, 避免版本兼容问题
+          pip install --quiet --disable-pip-version-check \
+            numpy \
+            faiss-cpu \
+            sentence-transformers
+          echo "::notice::Dependencies installed"
+
+      # ─────────────────────────────────────────────────────────
+      # Step 4: 验证 import 可用 (快速, 1min 足够)
+      # ─────────────────────────────────────────────────────────
+      - name: Verify imports
+        timeout-minutes: 1
+        run: |
+          python -c "import faiss, numpy, sentence_transformers; print('all imports ok')"
+
+      # ─────────────────────────────────────────────────────────
+      # Step 5: 跑 mock 单元测试
+      # 本地已知 8.5s, 给 2min (12x buffer) 足够
+      # 风险: 如果 mock 测试卡住 (e.g. 死锁), 2min 强制结束
+      # ─────────────────────────────────────────────────────────
+      - name: Run mock unit tests
+        timeout-minutes: 2
+        env:
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          PYTHONIOENCODING: 'utf-8'
+        run: |
+          python -X utf8 -m unittest tests.test_kb_search_unit -v 2>&1 | tee unittest_output.log
+          echo "::notice::Mock unit tests completed"
+
+      # ─────────────────────────────────────────────────────────
+      # Step 6: 烟雾测试 (验证 kb_search / merge_to_disk / dedup_and_reindex 可 import)
+      # 不跑完整功能 (避免依赖 KB 数据)
+      # timeout 1min: 3 个 import + faiss 加载, 正常 5-10s
+      # ─────────────────────────────────────────────────────────
+      - name: Run script smoke tests
+        timeout-minutes: 1
+        env:
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+          PYTHONIOENCODING: 'utf-8'
+        run: |
+          python -c "
+          import kb_search
+          import merge_to_disk
+          import dedup_and_reindex
+          print('all scripts importable')
+          "
+
+      # ─────────────────────────────────────────────────────────
+      # Step 7: 语法检查 (所有 .py 文件)
+      # 极快 (秒级), 1min 足够
+      # ─────────────────────────────────────────────────────────
+      - name: Syntax check all .py files
+        timeout-minutes: 1
+        run: |
+          python -c "
+          import ast
+          import glob
+          files = glob.glob('*.py') + glob.glob('tests/*.py')
+          for f in files:
+              try:
+                  ast.parse(open(f, encoding='utf-8').read())
+                  print(f'  OK: {f}')
+              except SyntaxError as e:
+                  print(f'  FAIL: {f}: {e}')
+                  raise
+          print(f'All {len(files)} files: syntax OK')
+          "
+
+      # ─────────────────────────────────────────────────────────
+      # Step 8: 上传测试结果 (即使前面失败也跑)
+      # ─────────────────────────────────────────────────────────
+      - name: Upload test logs
+        if: always()
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: unittest_output.log
+          if-no-files-found: ignore
