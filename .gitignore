@@ -36,3 +36,25 @@ Thumbs.db
 *.tmp
 *.bak
 *.log
+
+# Internal agent state (not source code)
+.agent_data/
+.experiments/
+.memory/
+.researcher_memory.json
+
+# Runtime health check artifacts (regenerated on each check)
+last_health_check.json
+
+# KB server error logs
+kb_server.err
+kb_server_v2.err
+
+# Test artifacts (manual experiments, not part of CI tests)
+test_orch.bib
+test_orch.tex
+test_orch_fixed.tex
+test_v5.bib
+test_v5.tex
+test_v5_fixed.tex
+test_v6.tex

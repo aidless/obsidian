@@ -1,0 +1,2 @@
+timestamp,faiss_vectors,sqlite_papers,paper_ids,index_gb,db_gb,last_daily_run,last_added,total_runs
+2026-07-09T09:01:13,363948,541877,363948,0.559,8.987,2026-07-09T00:58:27.455301+00:00,467,10
