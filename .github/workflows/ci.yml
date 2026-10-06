@@ -31,7 +31,7 @@ jobs:
       # Step 1: 拉代码 (官方 action, 几乎不会卡, 但还是加保护)
       # ─────────────────────────────────────────────────────────
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         timeout-minutes: 2
 
       # ─────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ jobs:
     # take effect until the branch is regenerated. Pinned, not latest.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: gitleaks (full history)
