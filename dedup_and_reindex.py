@@ -39,8 +39,8 @@ from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
 
-KB_DIR = Path(r'E:/peS2o_kb_faiss')
-PES2O_JSONL_DIR = Path(r'E:/peS2o_cs')
+KB_DIR = Path(os.environ.get('PES2O_KB_DIR', 'E:/peS2o_kb_faiss'))  # 原作者本机 KB；用 PES2O_KB_DIR 覆盖
+PES2O_JSONL_DIR = Path(os.environ.get('PES2O_JSONL_DIR', 'E:/peS2o_cs'))
 PES2O_PATTERN = 'peS2o-*.jsonl'
 CHECKPOINT = Path(r'F:/temp/dedup_reindex_ckpt.json')
 
